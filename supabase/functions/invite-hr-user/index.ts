@@ -1,0 +1,86 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface Body {
+  email: string;
+  password: string;
+  fullName: string;
+  companyId: string;
+  departmentId: string | null;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Verify caller is super_admin
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const userClient = createClient(SUPABASE_URL, ANON, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const { data: roleRows } = await admin
+      .from("user_roles").select("role").eq("user_id", userData.user.id);
+    const isSuper = (roleRows ?? []).some((r) => r.role === "super_admin");
+    if (!isSuper) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = (await req.json()) as Body;
+    if (!body.email || !body.password || !body.companyId) {
+      return new Response(JSON.stringify({ error: "Missing fields" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Create auth user (auto-confirm)
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      email: body.email,
+      password: body.password,
+      email_confirm: true,
+      user_metadata: { full_name: body.fullName },
+    });
+    if (createErr || !created.user) {
+      return new Response(JSON.stringify({ error: createErr?.message || "Create user failed" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const newId = created.user.id;
+    // Upsert profile (trigger should have created it; we update with company/department)
+    await admin.from("profiles").upsert({
+      id: newId,
+      email: body.email,
+      full_name: body.fullName,
+      company_id: body.companyId,
+      department_id: body.departmentId,
+    });
+    // Assign HR role
+    await admin.from("user_roles").insert({ user_id: newId, role: "hr" });
+
+    return new Response(JSON.stringify({ ok: true, userId: newId }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error(e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
