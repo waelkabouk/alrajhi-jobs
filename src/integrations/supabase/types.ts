@@ -14,16 +14,297 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      applications: {
+        Row: {
+          candidate_id: string
+          company_id: string
+          created_at: string
+          id: string
+          job_id: string
+          score: number | null
+          score_breakdown: Json | null
+          status: Database["public"]["Enums"]["application_status"]
+        }
+        Insert: {
+          candidate_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          job_id: string
+          score?: number | null
+          score_breakdown?: Json | null
+          status?: Database["public"]["Enums"]["application_status"]
+        }
+        Update: {
+          candidate_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          score?: number | null
+          score_breakdown?: Json | null
+          status?: Database["public"]["Enums"]["application_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidates: {
+        Row: {
+          created_at: string
+          cv_file_url: string | null
+          cv_language: string | null
+          cv_text: string | null
+          email: string
+          id: string
+          name: string
+          parsed_data: Json | null
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          cv_file_url?: string | null
+          cv_language?: string | null
+          cv_text?: string | null
+          email: string
+          id?: string
+          name: string
+          parsed_data?: Json | null
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          cv_file_url?: string | null
+          cv_language?: string | null
+          cv_text?: string | null
+          email?: string
+          id?: string
+          name?: string
+          parsed_data?: Json | null
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      companies: {
+        Row: {
+          created_at: string
+          font_family: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          primary_color: string | null
+          secondary_color: string | null
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          font_family?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          font_family?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          slug?: string
+        }
+        Relationships: []
+      }
+      departments: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          description_ar: string | null
+          description_en: string | null
+          id: string
+          requirements_ar: string | null
+          requirements_en: string | null
+          status: Database["public"]["Enums"]["job_status"]
+          title_ar: string | null
+          title_en: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          id?: string
+          requirements_ar?: string | null
+          requirements_en?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          title_ar?: string | null
+          title_en?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          id?: string
+          requirements_ar?: string | null
+          requirements_en?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          title_ar?: string | null
+          title_en?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          department_id: string | null
+          email: string
+          full_name: string | null
+          id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          department_id?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          department_id?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      current_user_company_id: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin" | "hr"
+      application_status: "pending" | "reviewed" | "accepted" | "rejected"
+      job_status: "active" | "inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +431,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin", "hr"],
+      application_status: ["pending", "reviewed", "accepted", "rejected"],
+      job_status: ["active", "inactive"],
+    },
   },
 } as const
