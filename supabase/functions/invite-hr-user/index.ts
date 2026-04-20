@@ -21,20 +21,25 @@ Deno.serve(async (req) => {
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify caller is super_admin
+    // Verify caller is super_admin via JWT claims (signing-keys compatible)
     const authHeader = req.headers.get("Authorization") ?? "";
-    const userClient = createClient(SUPABASE_URL, ANON, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData.user) {
+    if (!authHeader.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const token = authHeader.replace("Bearer ", "");
+    const userClient = createClient(SUPABASE_URL, ANON);
+    const { data: claimsData, error: userErr } = await userClient.auth.getClaims(token);
+    if (userErr || !claimsData?.claims?.sub) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const callerId = claimsData.claims.sub as string;
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: roleRows } = await admin
-      .from("user_roles").select("role").eq("user_id", userData.user.id);
+      .from("user_roles").select("role").eq("user_id", callerId);
     const isSuper = (roleRows ?? []).some((r) => r.role === "super_admin");
     if (!isSuper) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {

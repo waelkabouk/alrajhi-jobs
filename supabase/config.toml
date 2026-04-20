@@ -4,7 +4,7 @@ project_id = "ntkoxpfzfsxuvnyakydn"
 verify_jwt = false
 
 [functions.invite-hr-user]
-verify_jwt = true
+verify_jwt = false
 
 [functions.seed-super-admin]
 verify_jwt = false
