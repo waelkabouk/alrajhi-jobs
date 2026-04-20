@@ -75,20 +75,18 @@ export default function JobDetails() {
         .upload(path, file, { contentType: file.type, upsert: false });
       if (upErr) throw upErr;
 
-      // 2. Create candidate row
-      const { data: cand, error: candErr } = await supabase
+      // 2. Create candidate row (client-generated id so we don't need a SELECT after insert)
+      const candidateId = crypto.randomUUID();
+      const { error: candErr } = await supabase
         .from("candidates")
-        .insert({ name, email, phone, cv_file_url: path })
-        .select("id")
-        .single();
+        .insert({ id: candidateId, name, email, phone, cv_file_url: path });
       if (candErr) throw candErr;
 
-      // 3. Create application row
-      const { data: app, error: appErr } = await supabase
+      // 3. Create application row (client-generated id, avoids RLS-blocked returning SELECT)
+      const applicationId = crypto.randomUUID();
+      const { error: appErr } = await supabase
         .from("applications")
-        .insert({ candidate_id: cand.id, job_id: job.id, company_id: job.company_id })
-        .select("id")
-        .single();
+        .insert({ id: applicationId, candidate_id: candidateId, job_id: job.id, company_id: job.company_id });
       if (appErr) throw appErr;
 
       // 4. Trigger CV processing (fire-and-forget)
