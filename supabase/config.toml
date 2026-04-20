@@ -1,1 +1,7 @@
 project_id = "ntkoxpfzfsxuvnyakydn"
+
+[functions.process-cv]
+verify_jwt = false
+
+[functions.invite-hr-user]
+verify_jwt = true
