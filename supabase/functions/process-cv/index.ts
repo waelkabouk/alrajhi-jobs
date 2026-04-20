@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { extractText, getDocumentProxy } from "https://esm.sh/unpdf@0.12.1";
+import { getResolvedPDFJS } from "https://esm.sh/pdfjs-serverless@0.5.0";
 import { unzip } from "https://esm.sh/unzipit@1.4.3";
 
 const corsHeaders = {
@@ -14,9 +14,15 @@ const detectLang = (text: string): "ar" | "en" => {
 };
 
 async function extractPdfText(bytes: Uint8Array): Promise<string> {
-  const pdf = await getDocumentProxy(bytes);
-  const { text } = await extractText(pdf, { mergePages: true });
-  return Array.isArray(text) ? text.join("\n") : text;
+  const { getDocument } = await getResolvedPDFJS();
+  const doc = await getDocument({ data: bytes, useSystemFonts: true }).promise;
+  let out = "";
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    out += content.items.map((it: { str?: string }) => it.str ?? "").join(" ") + "\n";
+  }
+  return out;
 }
 
 async function extractDocxText(bytes: Uint8Array): Promise<string> {
