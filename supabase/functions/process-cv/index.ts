@@ -1,12 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-// Use legacy build of pdfjs to avoid native canvas dependency in Deno
-import * as pdfjs from "https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.mjs";
-import mammoth from "https://esm.sh/mammoth@1.7.0";
-
-// Disable worker (not needed for text extraction)
-// @ts-expect-error worker not needed
-pdfjs.GlobalWorkerOptions.workerSrc = "";
-const getDocument = pdfjs.getDocument;
+import { extractText, getDocumentProxy } from "https://esm.sh/unpdf@0.12.1";
+import { unzip } from "https://esm.sh/unzipit@1.4.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,21 +13,29 @@ const detectLang = (text: string): "ar" | "en" => {
   return arabic > latin ? "ar" : "en";
 };
 
+async function extractPdfText(bytes: Uint8Array): Promise<string> {
+  const pdf = await getDocumentProxy(bytes);
+  const { text } = await extractText(pdf, { mergePages: true });
+  return Array.isArray(text) ? text.join("\n") : text;
+}
+
+async function extractDocxText(bytes: Uint8Array): Promise<string> {
+  // DOCX = zip; word/document.xml contains the body. Strip XML tags for plain text.
+  const { entries } = await unzip(bytes);
+  const docEntry = entries["word/document.xml"];
+  if (!docEntry) return "";
+  const xml = await docEntry.text();
+  // Insert spaces between tags to keep words separated, then strip tags
+  return xml
+    .replace(/<\/w:p>/g, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function extractText(bytes: Uint8Array, ext: string): Promise<string> {
-  if (ext === "pdf") {
-    const doc = await getDocument({ data: bytes }).promise;
-    let out = "";
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      out += content.items.map((it: { str?: string }) => it.str ?? "").join(" ") + "\n";
-    }
-    return out;
-  }
-  if (ext === "docx") {
-    const result = await mammoth.extractRawText({ buffer: bytes as unknown as Buffer });
-    return result.value;
-  }
+  if (ext === "pdf") return await extractPdfText(bytes);
+  if (ext === "docx") return await extractDocxText(bytes);
   return "";
 }
 
@@ -91,15 +93,11 @@ async function callAi(cvText: string, jobText: string, lang: string): Promise<Sc
 
 function computeScore(parsed: ScoreResult, jobText: string): { score: number; breakdown: Record<string, number> } {
   const jobLower = jobText.toLowerCase();
-  // Skills: % of CV skills mentioned in job
   const skillHits = parsed.skills.filter((s) => jobLower.includes(s.toLowerCase())).length;
   const skillScore = parsed.skills.length ? (skillHits / parsed.skills.length) * 100 : 0;
-  // Experience: cap at 8 yrs = 100%
   const expScore = Math.min(parsed.experience_years / 8, 1) * 100;
-  // Keywords
   const kwHits = parsed.keywords.filter((k) => jobLower.includes(k.toLowerCase())).length;
   const kwScore = parsed.keywords.length ? (kwHits / parsed.keywords.length) * 100 : 0;
-  // Signals: summary length proxy
   const signalScore = parsed.summary.length > 50 ? 100 : 50;
 
   const total = skillScore * 0.4 + expScore * 0.3 + kwScore * 0.2 + signalScore * 0.1;
