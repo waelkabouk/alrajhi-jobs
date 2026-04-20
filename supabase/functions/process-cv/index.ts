@@ -1,10 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getDocument, GlobalWorkerOptions } from "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs";
+// Use legacy build of pdfjs to avoid native canvas dependency in Deno
+import * as pdfjs from "https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.mjs";
 import mammoth from "https://esm.sh/mammoth@1.7.0";
 
-// pdfjs in Deno: disable worker
+// Disable worker (not needed for text extraction)
 // @ts-expect-error worker not needed
-GlobalWorkerOptions.workerSrc = "";
+pdfjs.GlobalWorkerOptions.workerSrc = "";
+const getDocument = pdfjs.getDocument;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
