@@ -91,7 +91,7 @@ export default function JobDetails() {
 
       // 4. Trigger CV processing (fire-and-forget)
       supabase.functions.invoke("process-cv", {
-        body: { applicationId: app.id },
+        body: { applicationId },
       }).catch((e) => console.error("process-cv invoke failed", e));
 
       setSubmitted(true);
