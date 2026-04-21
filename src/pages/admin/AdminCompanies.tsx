@@ -67,7 +67,7 @@ export default function AdminCompanies() {
           <h1 className="text-2xl font-bold">{t("admin.companies")}</h1>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4" />{t("admin.newCompany")}</Button>
+              <Button className="gap-1.5"><Plus className="h-4 w-4" />{t("admin.newCompany")}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>{t("admin.newCompany")}</DialogTitle></DialogHeader>

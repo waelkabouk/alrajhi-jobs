@@ -129,7 +129,7 @@ export default function HrApplications() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => openCv(r.candidates?.cv_file_url ?? null)}>
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openCv(r.candidates?.cv_file_url ?? null)}>
                         <ExternalLink className="h-3 w-3" />{t("hr.viewCv")}
                       </Button>
                     </TableCell>
