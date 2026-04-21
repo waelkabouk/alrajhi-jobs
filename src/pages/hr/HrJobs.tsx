@@ -31,7 +31,7 @@ export default function HrJobs() {
       <main className="container py-8">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">{t("hr.jobs")}</h1>
-          <Button asChild><Link to="/hr/jobs/new"><Plus className="h-4 w-4" />{t("hr.newJob")}</Link></Button>
+          <Button asChild><Link to="/hr/jobs/new" className="gap-1.5"><Plus className="h-4 w-4" />{t("hr.newJob")}</Link></Button>
         </div>
         <Card className="mt-6">
           <CardContent className="p-0">
