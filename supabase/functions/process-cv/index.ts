@@ -1,6 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getResolvedPDFJS } from "https://esm.sh/pdfjs-serverless@0.5.0";
-import { unzip } from "https://esm.sh/unzipit@1.4.3";
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { getDocument } from "npm:pdfjs-serverless@0.5.0";
+import { unzip } from "npm:unzipit@1.4.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +14,6 @@ const detectLang = (text: string): "ar" | "en" => {
 };
 
 async function extractPdfText(bytes: Uint8Array): Promise<string> {
-  const { getDocument } = await getResolvedPDFJS();
   const doc = await getDocument({ data: bytes, useSystemFonts: true }).promise;
   let out = "";
   for (let i = 1; i <= doc.numPages; i++) {
