@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppHeader } from "@/components/AppHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +22,7 @@ export default function HrJobForm() {
   const navigate = useNavigate();
   const { user, companyId } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [companySlug, setCompanySlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
 
@@ -36,6 +38,7 @@ export default function HrJobForm() {
   useEffect(() => {
     if (!companyId) return;
     supabase.from("departments").select("id, name").eq("company_id", companyId).then(({ data }) => setDepartments(data ?? []));
+    supabase.from("companies").select("slug").eq("id", companyId).maybeSingle().then(({ data }) => setCompanySlug(data?.slug ?? null));
   }, [companyId]);
 
   useEffect(() => {
@@ -114,9 +117,20 @@ export default function HrJobForm() {
                   </Select>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={saving}>{saving ? t("common.loading") : t("common.save")}</Button>
                 <Button type="button" variant="outline" onClick={() => navigate("/hr")}>{t("common.cancel")}</Button>
+                {!isNew && companySlug && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="gap-1.5"
+                    onClick={() => window.open(`/company/${companySlug}/jobs/${id}`, "_blank", "noreferrer")}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    {t("hr.viewJobForum")}
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>

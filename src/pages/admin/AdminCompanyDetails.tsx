@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 
 interface Company {
   id: string; name: string; slug: string; primary_color: string | null;
@@ -20,6 +20,7 @@ interface HrUser { id: string; email: string; full_name: string | null; departme
 
 export default function AdminCompanyDetails() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [company, setCompany] = useState<Company | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -101,9 +102,19 @@ export default function AdminCompanyDetails() {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="container py-8 space-y-6 max-w-5xl">
-        <div>
-          <h1 className="text-2xl font-bold">{company.name}</h1>
-          <p className="text-sm text-muted-foreground"><code>/company/{company.slug}</code></p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">{company.name}</h1>
+            <p className="text-sm text-muted-foreground"><code>/company/{company.slug}</code></p>
+          </div>
+          <Button
+            variant="outline"
+            className="gap-1.5 shrink-0"
+            onClick={() => window.open(`/company/${company.slug}`, "_blank", "noreferrer")}
+          >
+            <ExternalLink className="h-4 w-4" />
+            {t("admin.viewCompanyPage")}
+          </Button>
         </div>
 
         <Card>

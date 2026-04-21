@@ -50,6 +50,7 @@ interface ScoreResult {
   experience_years: number;
   keywords: string[];
   summary: string;
+  notes: string;
 }
 
 async function callAi(cvText: string, jobText: string, lang: string): Promise<ScoreResult> {
@@ -77,8 +78,9 @@ async function callAi(cvText: string, jobText: string, lang: string): Promise<Sc
               experience_years: { type: "number", description: "Total relevant years of experience" },
               keywords: { type: "array", items: { type: "string" }, description: "Important keywords matched" },
               summary: { type: "string", description: "Short summary of fit, 1-2 sentences" },
+              notes: { type: "string", description: "1-3 sentences covering strengths, gaps, and fit reasoning. Write in the same language as the CV." },
             },
-            required: ["skills", "experience_years", "keywords", "summary"],
+            required: ["skills", "experience_years", "keywords", "summary", "notes"],
             additionalProperties: false,
           },
         },
@@ -179,6 +181,7 @@ Deno.serve(async (req) => {
     await admin.from("applications").update({
       score,
       score_breakdown: breakdown,
+      ai_notes: parsed?.notes ?? null,
     }).eq("id", applicationId);
 
     return new Response(JSON.stringify({ ok: true, score, breakdown }), {
