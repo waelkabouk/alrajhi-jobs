@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Briefcase } from "lucide-react";
+import { Briefcase, ArrowLeft, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface Job {
@@ -126,7 +126,10 @@ export default function JobDetails() {
             </header>
             <main className="container max-w-3xl py-10 space-y-6">
               <Button variant="ghost" size="sm" asChild>
-                <Link to={`/company/${slug}`}>← {t("public.backToJobs")}</Link>
+                <Link to={`/company/${slug}`} className="gap-1.5">
+                  {i18n.language === "ar" ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+                  {t("public.backToJobs")}
+                </Link>
               </Button>
               <div>
                 <h1 className="text-3xl font-bold">{pick(job.title_ar, job.title_en)}</h1>
