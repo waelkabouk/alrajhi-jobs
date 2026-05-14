@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,6 +6,7 @@
  * AlRajhi Jobs Portal — Design Tokens
  * Aligned with the main AlRajhi Building website brand identity.
  * Primary = #1E3A8A (brand blue), radius = 0 (sharp corners).
+ * Fonts loaded via <link> preconnect in index.html (non-blocking).
  */
 
 @layer base {
@@ -84,9 +83,7 @@
     --sidebar-border: 217 33% 17%;
     --sidebar-ring: 224 76% 60%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
     box-sizing: border-box;

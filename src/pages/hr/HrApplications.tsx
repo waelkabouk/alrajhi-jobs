@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
@@ -136,7 +136,7 @@ export default function HrApplications() {
   const [sortBy, setSortBy] = useState<"score" | "date">("score");
   const { getCountries, getCountryName, getCityName, loadCountryCities } = useLocationData();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!jobId) return;
     const { data, error } = await supabase
       .from("applications")
@@ -150,8 +150,8 @@ export default function HrApplications() {
       toast.error(`Database Error: ${error.message}`);
     }
     setRows((data as unknown as Row[]) ?? []);
-  };
-  useEffect(() => { load(); }, [jobId]);
+  }, [jobId]);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     let r = [...rows];

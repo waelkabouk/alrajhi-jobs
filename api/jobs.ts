@@ -1,13 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-export default async function handler(req: any, res: any) {
-  // Set CORS headers to allow requests from the main website
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// Set ALLOWED_ORIGIN in Vercel env vars to restrict cross-origin access
+// (e.g. "https://alrajhi.com"). Falls back to '*' only if unset.
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? '*';
+
+type Request = { method: string };
+type Response = {
+  setHeader: (k: string, v: string) => void;
+  status: (code: number) => { end: () => void; json: (d: unknown) => void };
+};
+
+export default async function handler(req: Request, res: Response) {
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-Requested-With, Accept, Content-Type, Date'
   );
 
   if (req.method === 'OPTIONS') {
@@ -35,7 +44,7 @@ export default async function handler(req: any, res: any) {
     }
 
     return res.status(200).json(data);
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+  } catch (err: unknown) {
+    return res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
   }
 }

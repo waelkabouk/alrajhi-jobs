@@ -31,9 +31,9 @@ export default defineConfig(({ mode }) => {
               });
               const data = await fetchRes.json();
               res.end(JSON.stringify(data));
-            } catch (err: any) {
+            } catch (err: unknown) {
               res.statusCode = 500;
-              res.end(JSON.stringify({ error: err.message }));
+              res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Unknown error' }));
             }
           });
         }

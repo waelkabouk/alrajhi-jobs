@@ -67,7 +67,7 @@ export default function HrJobForm() {
       description_en: descEn || null, description_ar: descAr || null,
 
       status,
-      created_by: user.id,
+      created_by: user?.id ?? "",
     };
     const { error } = isNew
       ? await supabase.from("jobs").insert(payload)

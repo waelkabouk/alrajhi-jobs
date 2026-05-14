@@ -39,7 +39,6 @@ interface Job {
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPT = ".pdf,.docx";
-const PHONE_RE = /^\+?[0-9 ()-]{7,20}$/;
 
 const buildSchema = (t: (k: string) => string) =>
   z.object({
