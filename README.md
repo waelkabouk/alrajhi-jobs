@@ -7,7 +7,7 @@ A bilingual (Arabic / English) ATS where companies publish jobs on branded publi
 - **Multi-tenant companies** — each company has its own slug, logo, theme colors, and font (`/company/:slug`).
 - **Bilingual UI** — Arabic & English with RTL support (`react-i18next`).
 - **Roles**
-  - `super_admin` — manages companies, departments, and invites HR users.
+  - `super_admin` — manages companies, sectors, and invites HR users.
   - `hr` — manages jobs and applications scoped to their company.
 - **Public job board** — active jobs are listed on the company page; candidates apply with name, email, phone, and a CV (PDF / DOCX, max 5 MB).
 - **AI CV scoring** — on submission, an edge function extracts CV text, calls Lovable AI for structured analysis, and stores a 0–100 score with a breakdown.
@@ -51,10 +51,9 @@ supabase/
 | Table | Purpose |
 |---|---|
 | `companies` | Tenant record (slug, logo, theme). |
-| `departments` | Departments per company. |
-| `profiles` | Mirrors `auth.users` with `company_id` / `department_id`. |
+| `profiles` | Mirrors `auth.users` with `company_id` / `sector`. |
 | `user_roles` | `super_admin` or `hr` — checked via `has_role()` SECURITY DEFINER function. |
-| `jobs` | Bilingual title / description / requirements + `status`. |
+| `jobs` | Bilingual title / description / requirements, `status`, and `sector` ENUM. |
 | `candidates` | Applicant info, `cv_file_url`, AI `parsed_data`. |
 | `applications` | Links candidate ↔ job, `status`, `score`, `score_breakdown`. |
 

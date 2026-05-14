@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
-import { Briefcase } from "lucide-react";
 
 export const AppHeader = () => {
   const { t } = useTranslation();
@@ -16,19 +15,24 @@ export const AppHeader = () => {
   };
 
   return (
-    <header className="border-b bg-card">
-      <div className="container flex h-14 items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
-          <Briefcase className="h-5 w-5 text-primary" />
-          <span>{t("app.name")}</span>
+    <header className="border-b bg-white shadow-sm sticky top-0 z-50">
+      <div className="container flex h-16 items-center justify-between gap-4">
+        {/* Logo — links to the jobs listing */}
+        <Link to="/" className="flex items-center gap-3 shrink-0">
+          <img
+            src="/logo.svg"
+            alt="AlRajhi Building & Construction"
+            className="h-10 w-auto"
+          />
         </Link>
+
         <nav className="flex items-center gap-2">
           {roles.includes("super_admin") && (
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/admin/companies">{t("nav.admin")}</Link>
+              <Link to="/admin">{t("nav.admin")}</Link>
             </Button>
           )}
-          {roles.includes("hr") && (
+          {(roles.includes("super_admin") || roles.includes("hr")) && (
             <Button variant="ghost" size="sm" asChild>
               <Link to="/hr">{t("nav.hr")}</Link>
             </Button>

@@ -18,7 +18,7 @@ export const ProtectedRoute = ({ children, requireRole }: Props) => {
     );
   }
   if (!user) return <Navigate to="/auth" replace />;
-  if (requireRole && !roles.includes(requireRole)) {
+  if (requireRole && !roles.includes(requireRole) && !roles.includes("super_admin")) {
     return <Navigate to="/" replace />;
   }
   return <>{children}</>;

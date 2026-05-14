@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      if (roles.includes("super_admin")) navigate("/admin/companies", { replace: true });
+      if (roles.includes("super_admin")) navigate("/admin", { replace: true });
       else if (roles.includes("hr")) navigate("/hr", { replace: true });
       else navigate("/", { replace: true });
     }
@@ -39,14 +39,18 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md space-y-4">
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <img src="/logo.svg" alt="AlRajhi Building & Construction" className="h-14 w-auto" />
+        </div>
         <div className="flex justify-end">
           <LanguageSwitcher />
         </div>
         <Card>
-          <CardHeader>
-            <CardTitle>{t("auth.title")}</CardTitle>
+          <CardHeader className="pb-2">
+            <p className="text-center text-sm text-muted-foreground">{t("auth.title")}</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">

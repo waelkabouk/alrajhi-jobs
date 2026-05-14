@@ -9,8 +9,7 @@ interface Body {
   email: string;
   password: string;
   fullName: string;
-  companyId: string;
-  departmentId: string | null;
+  sector: "industrial" | "contracting" | "trading" | null;
 }
 
 Deno.serve(async (req) => {
@@ -20,8 +19,6 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Extract user id from JWT (sub claim) without verifying signature.
-    // Authorization is enforced by checking user_roles via service role below.
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -56,7 +53,7 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as Body;
-    if (!body.email || !body.password || !body.companyId) {
+    if (!body.email || !body.password) {
       return new Response(JSON.stringify({ error: "Missing fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -76,13 +73,12 @@ Deno.serve(async (req) => {
     }
 
     const newId = created.user.id;
-    // Upsert profile (trigger should have created it; we update with company/department)
+    // Upsert profile
     await admin.from("profiles").upsert({
       id: newId,
       email: body.email,
       full_name: body.fullName,
-      company_id: body.companyId,
-      department_id: body.departmentId,
+      sector: body.sector,
     });
     // Assign HR role
     await admin.from("user_roles").insert({ user_id: newId, role: "hr" });

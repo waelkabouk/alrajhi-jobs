@@ -13,16 +13,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
-interface Department { id: string; name: string; }
+
 
 export default function HrJobForm() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const isNew = !id || id === "new";
   const navigate = useNavigate();
-  const { user, companyId } = useAuth();
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [companySlug, setCompanySlug] = useState<string | null>(null);
+  const { user, roles, sector: userSector } = useAuth();
+  const isSuperAdmin = roles.includes("super_admin");
+
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
 
@@ -30,40 +30,42 @@ export default function HrJobForm() {
   const [titleAr, setTitleAr] = useState("");
   const [descEn, setDescEn] = useState("");
   const [descAr, setDescAr] = useState("");
-  const [reqEn, setReqEn] = useState("");
-  const [reqAr, setReqAr] = useState("");
+
   const [status, setStatus] = useState<"active" | "inactive">("active");
-  const [departmentId, setDepartmentId] = useState<string>("");
+  const [sector, setSector] = useState<"industrial" | "contracting" | "trading" | "">("");
+  const [jobType, setJobType] = useState<"full-time" | "part-time" | "contract" | "">("full-time");
+  const [location, setLocation] = useState("");
 
   useEffect(() => {
-    if (!companyId) return;
-    supabase.from("departments").select("id, name").eq("company_id", companyId).then(({ data }) => setDepartments(data ?? []));
-    supabase.from("companies").select("slug").eq("id", companyId).maybeSingle().then(({ data }) => setCompanySlug(data?.slug ?? null));
-  }, [companyId]);
-
-  useEffect(() => {
-    if (isNew || !id) return;
+    if (isNew || !id) {
+      if (!isSuperAdmin && userSector) {
+        setSector(userSector);
+      }
+      return;
+    }
     supabase.from("jobs").select("*").eq("id", id).maybeSingle().then(({ data }) => {
       if (data) {
         setTitleEn(data.title_en ?? ""); setTitleAr(data.title_ar ?? "");
         setDescEn(data.description_en ?? ""); setDescAr(data.description_ar ?? "");
-        setReqEn(data.requirements_en ?? ""); setReqAr(data.requirements_ar ?? "");
-        setStatus(data.status); setDepartmentId(data.department_id ?? "");
+
+        setStatus(data.status); setSector((data.sector as "industrial" | "contracting" | "trading" | "") ?? "");
+        setJobType((data.job_type as "full-time" | "part-time" | "contract" | "") ?? "full-time");
+        setLocation(data.location ?? "");
       }
       setLoading(false);
     });
-  }, [id, isNew]);
+  }, [id, isNew, isSuperAdmin, userSector]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyId || !user) { toast.error(t("errors.generic")); return; }
     setSaving(true);
     const payload = {
-      company_id: companyId,
-      department_id: departmentId || null,
+      sector: sector || null,
+      job_type: jobType || null,
+      location: location || null,
       title_en: titleEn || null, title_ar: titleAr || null,
       description_en: descEn || null, description_ar: descAr || null,
-      requirements_en: reqEn || null, requirements_ar: reqAr || null,
+
       status,
       created_by: user.id,
     };
@@ -94,25 +96,76 @@ export default function HrJobForm() {
                 <div className="space-y-2"><Label>{t("hr.descriptionEn")}</Label><Textarea rows={5} value={descEn} onChange={(e) => setDescEn(e.target.value)} /></div>
                 <div className="space-y-2"><Label>{t("hr.descriptionAr")}</Label><Textarea dir="rtl" rows={5} value={descAr} onChange={(e) => setDescAr(e.target.value)} /></div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2"><Label>{t("hr.requirementsEn")}</Label><Textarea rows={4} value={reqEn} onChange={(e) => setReqEn(e.target.value)} /></div>
-                <div className="space-y-2"><Label>{t("hr.requirementsAr")}</Label><Textarea dir="rtl" rows={4} value={reqAr} onChange={(e) => setReqAr(e.target.value)} /></div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>{t("hr.department")}</Label>
-                  <Select value={departmentId} onValueChange={setDepartmentId}>
-                    <SelectTrigger><SelectValue placeholder={t("common.optional")} /></SelectTrigger>
-                    <SelectContent>{departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                  <Label>{t("hr.sector")}</Label>
+                  <Select value={sector} onValueChange={(v) => setSector(v as "industrial" | "contracting" | "trading")} disabled={!isSuperAdmin}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("common.optional")}>
+                        {sector === "industrial" ? t("sectors.industrial") : 
+                         sector === "contracting" ? t("sectors.contracting") : 
+                         sector === "trading" ? t("sectors.trading") : ""}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="industrial">{t("sectors.industrial")}</SelectItem>
+                      <SelectItem value="contracting">{t("sectors.contracting")}</SelectItem>
+                      <SelectItem value="trading">{t("sectors.trading")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("hr.jobType")}</Label>
+                  <Select value={jobType} onValueChange={(v) => setJobType(v as "full-time" | "part-time" | "contract")}>
+                    <SelectTrigger>
+                      <SelectValue>
+                        {jobType === "full-time" ? t("hr.fullTime") :
+                         jobType === "part-time" ? t("hr.partTime") :
+                         jobType === "contract" ? t("hr.contract") : ""}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full-time">{t("hr.fullTime")}</SelectItem>
+                      <SelectItem value="part-time">{t("hr.partTime")}</SelectItem>
+                      <SelectItem value="contract">{t("hr.contract")}</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>{t("common.status")}</Label>
                   <Select value={status} onValueChange={(v) => setStatus(v as "active" | "inactive")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue>
+                        {status === "active" ? t("hr.active") : t("hr.inactive")}
+                      </SelectValue>
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="active">{t("hr.active")}</SelectItem>
                       <SelectItem value="inactive">{t("hr.inactive")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("public.provinceRegion", "Location")}</Label>
+                  <Select value={location} onValueChange={setLocation}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("common.optional", "Optional")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Riyadh Region">Riyadh Region</SelectItem>
+                      <SelectItem value="Makkah Region">Makkah Region</SelectItem>
+                      <SelectItem value="Madinah Region">Madinah Region</SelectItem>
+                      <SelectItem value="Eastern Province">Eastern Province</SelectItem>
+                      <SelectItem value="Qassim Region">Qassim Region</SelectItem>
+                      <SelectItem value="Asir Region">Asir Region</SelectItem>
+                      <SelectItem value="Tabuk Region">Tabuk Region</SelectItem>
+                      <SelectItem value="Hail Region">Hail Region</SelectItem>
+                      <SelectItem value="Northern Borders Region">Northern Borders Region</SelectItem>
+                      <SelectItem value="Jazan Region">Jazan Region</SelectItem>
+                      <SelectItem value="Najran Region">Najran Region</SelectItem>
+                      <SelectItem value="Al Baha Region">Al Baha Region</SelectItem>
+                      <SelectItem value="Al Jawf Region">Al Jawf Region</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -120,12 +173,12 @@ export default function HrJobForm() {
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={saving}>{saving ? t("common.loading") : t("common.save")}</Button>
                 <Button type="button" variant="outline" onClick={() => navigate("/hr")}>{t("common.cancel")}</Button>
-                {!isNew && companySlug && (
+                {!isNew && (
                   <Button
                     type="button"
                     variant="secondary"
                     className="gap-1.5"
-                    onClick={() => window.open(`/company/${companySlug}/jobs/${id}`, "_blank", "noreferrer")}
+                    onClick={() => window.open(`/jobs/${id}`, "_blank", "noreferrer")}
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t("hr.viewJobForum")}

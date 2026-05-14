@@ -80,6 +80,10 @@ export type Database = {
           name: string
           parsed_data: Json | null
           phone: string | null
+          transferable_iqama: boolean | null
+          residence_country: string | null
+          residence_region: string | null
+          notice_period: number | null
         }
         Insert: {
           created_at?: string
@@ -91,6 +95,10 @@ export type Database = {
           name: string
           parsed_data?: Json | null
           phone?: string | null
+          transferable_iqama?: boolean | null
+          residence_country?: string | null
+          residence_region?: string | null
+          notice_period?: number | null
         }
         Update: {
           created_at?: string
@@ -102,6 +110,10 @@ export type Database = {
           name?: string
           parsed_data?: Json | null
           phone?: string | null
+          transferable_iqama?: boolean | null
+          residence_country?: string | null
+          residence_region?: string | null
+          notice_period?: number | null
         }
         Relationships: []
       }
@@ -138,41 +150,14 @@ export type Database = {
         }
         Relationships: []
       }
-      departments: {
-        Row: {
-          company_id: string
-          created_at: string
-          id: string
-          name: string
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          id?: string
-          name: string
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          id?: string
-          name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "departments_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+
       jobs: {
         Row: {
           company_id: string
           created_at: string
           created_by: string | null
-          department_id: string | null
+          job_type: Database["public"]["Enums"]["job_type"] | null
+          sector: Database["public"]["Enums"]["job_sector"] | null
           description_ar: string | null
           description_en: string | null
           id: string
@@ -181,12 +166,14 @@ export type Database = {
           status: Database["public"]["Enums"]["job_status"]
           title_ar: string | null
           title_en: string | null
+          location: string | null
         }
         Insert: {
           company_id: string
           created_at?: string
           created_by?: string | null
-          department_id?: string | null
+          job_type?: Database["public"]["Enums"]["job_type"] | null
+          sector?: Database["public"]["Enums"]["job_sector"] | null
           description_ar?: string | null
           description_en?: string | null
           id?: string
@@ -195,12 +182,14 @@ export type Database = {
           status?: Database["public"]["Enums"]["job_status"]
           title_ar?: string | null
           title_en?: string | null
+          location?: string | null
         }
         Update: {
           company_id?: string
           created_at?: string
           created_by?: string | null
-          department_id?: string | null
+          job_type?: Database["public"]["Enums"]["job_type"] | null
+          sector?: Database["public"]["Enums"]["job_sector"] | null
           description_ar?: string | null
           description_en?: string | null
           id?: string
@@ -209,6 +198,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["job_status"]
           title_ar?: string | null
           title_en?: string | null
+          location?: string | null
         }
         Relationships: [
           {
@@ -218,20 +208,14 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "jobs_department_id_fkey"
-            columns: ["department_id"]
-            isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
-          },
+
         ]
       }
       profiles: {
         Row: {
           company_id: string | null
           created_at: string
-          department_id: string | null
+          sector: Database["public"]["Enums"]["job_sector"] | null
           email: string
           full_name: string | null
           id: string
@@ -239,7 +223,7 @@ export type Database = {
         Insert: {
           company_id?: string | null
           created_at?: string
-          department_id?: string | null
+          sector?: Database["public"]["Enums"]["job_sector"] | null
           email: string
           full_name?: string | null
           id: string
@@ -247,7 +231,7 @@ export type Database = {
         Update: {
           company_id?: string | null
           created_at?: string
-          department_id?: string | null
+          sector?: Database["public"]["Enums"]["job_sector"] | null
           email?: string
           full_name?: string | null
           id?: string
@@ -260,13 +244,7 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "profiles_department_id_fkey"
-            columns: ["department_id"]
-            isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
-          },
+
         ]
       }
       user_roles: {
@@ -304,7 +282,9 @@ export type Database = {
     Enums: {
       app_role: "super_admin" | "hr"
       application_status: "pending" | "reviewed" | "accepted" | "rejected"
+      job_sector: "industrial" | "contracting" | "trading"
       job_status: "active" | "inactive"
+      job_type: "full-time" | "part-time" | "contract"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -434,7 +414,9 @@ export const Constants = {
     Enums: {
       app_role: ["super_admin", "hr"],
       application_status: ["pending", "reviewed", "accepted", "rejected"],
+      job_sector: ["industrial", "contracting", "trading"],
       job_status: ["active", "inactive"],
+      job_type: ["full-time", "part-time", "contract"],
     },
   },
 } as const

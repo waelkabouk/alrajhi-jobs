@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, Trash2 } from "lucide-react";
 
 interface Job {
   id: string;
@@ -20,9 +21,25 @@ interface Job {
 export default function HrJobs() {
   const { t, i18n } = useTranslation();
   const [jobs, setJobs] = useState<Job[]>([]);
-  useEffect(() => {
+  const loadJobs = () => {
     supabase.from("jobs").select("id, title_en, title_ar, status, created_at").order("created_at", { ascending: false }).then(({ data }) => setJobs((data as Job[]) ?? []));
+  };
+  
+  useEffect(() => {
+    loadJobs();
   }, []);
+
+  const handleDelete = async (id: string, title: string) => {
+    if (!confirm(t("common.confirmDelete", `Are you sure you want to delete ${title}?`))) return;
+    
+    const { error } = await supabase.from("jobs").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(t("common.deleted", "Deleted successfully"));
+      loadJobs();
+    }
+  };
   const title = (j: Job) => (i18n.language === "ar" ? j.title_ar || j.title_en : j.title_en || j.title_ar) || "—";
 
   return (
@@ -55,6 +72,9 @@ export default function HrJobs() {
                     <TableCell className="flex gap-2">
                       <Button size="sm" variant="outline" asChild><Link to={`/hr/jobs/${j.id}`}>{t("common.edit")}</Link></Button>
                       <Button size="sm" variant="ghost" asChild><Link to={`/hr/jobs/${j.id}/applications`}>{t("hr.viewApplications")}</Link></Button>
+                      <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(j.id, title(j))}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

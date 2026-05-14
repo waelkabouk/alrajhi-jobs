@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
+import { useLocationData } from "@/hooks/useLocationData";
 import { AppHeader } from "@/components/AppHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,7 +27,15 @@ interface CandidateData {
   marital_status: string | null;
   qualifications: string | null;
   experience_years: number | null;
+  residence_country: string | null;
+  residence_region: string | null;
   location: string | null;
+  job_title: string | null;
+  current_salary: number | null;
+  expected_salary: number | null;
+  notice_period: number | null;
+  transferable_iqama: boolean | null;
+  notes: string | null;
 }
 
 interface Row {
@@ -119,20 +128,27 @@ function HrNotesCell({
 }
 
 export default function HrApplications() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const { id: jobId } = useParams<{ id: string }>();
   const [rows, setRows] = useState<Row[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"score" | "date">("score");
+  const { getCountries, getCountryName, getCityName, loadCountryCities } = useLocationData();
 
   const load = async () => {
     if (!jobId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("applications")
       .select(
-        "id, status, score, ai_notes, hr_notes, created_at, candidates ( id, name, email, phone, cv_file_url, gender, nationality, marital_status, qualifications, experience_years, location )"
+        "id, status, score, ai_notes, hr_notes, created_at, candidates ( id, name, email, phone, cv_file_url, gender, nationality, transferable_iqama, marital_status, qualifications, experience_years, residence_country, residence_region, location, job_title, current_salary, expected_salary, notice_period, notes )"
       )
       .eq("job_id", jobId);
+    
+    if (error) {
+      console.error("Failed to load applications:", error);
+      toast.error(`Database Error: ${error.message}`);
+    }
     setRows((data as unknown as Row[]) ?? []);
   };
   useEffect(() => { load(); }, [jobId]);
@@ -146,6 +162,15 @@ export default function HrApplications() {
     });
     return r;
   }, [rows, statusFilter, sortBy]);
+
+  useEffect(() => {
+    const uniqueCountries = Array.from(
+      new Set(filtered.map((r) => r.candidates?.residence_country).filter(Boolean))
+    );
+    uniqueCountries.forEach((code) => {
+      if (code) loadCountryCities(code);
+    });
+  }, [filtered, loadCountryCities]);
 
   const updateStatus = async (id: string, status: AppStatus) => {
     const { error } = await supabase.from("applications").update({ status }).eq("id", id);
@@ -163,6 +188,20 @@ export default function HrApplications() {
   const statusLabel = (s: AppStatus) =>
     t(`hr.status${s.charAt(0).toUpperCase()}${s.slice(1)}`);
 
+  const genderLabel = (g: string) => {
+    if (g === "male") return t("public.genderMale");
+    if (g === "female") return t("public.genderFemale");
+    return t("public.genderUnspecified");
+  };
+
+  const maritalLabel = (m: string) => {
+    if (m === "single") return t("public.maritalSingle");
+    if (m === "married") return t("public.maritalMarried");
+    if (m === "divorced") return t("public.maritalDivorced");
+    if (m === "widowed") return t("public.maritalWidowed");
+    return t("public.maritalUnspecified");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader />
@@ -171,7 +210,11 @@ export default function HrApplications() {
           <h1 className="text-2xl font-bold">{t("hr.applications")}</h1>
           <div className="flex gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-44">
+                <SelectValue>
+                  {statusFilter === "all" ? t("hr.all") : statusLabel(statusFilter as AppStatus)}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("hr.all")}</SelectItem>
                 <SelectItem value="pending">{t("hr.statusPending")}</SelectItem>
@@ -181,7 +224,11 @@ export default function HrApplications() {
               </SelectContent>
             </Select>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as "score" | "date")}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-44">
+                <SelectValue>
+                  {sortBy === "score" ? t("hr.sortByScore") : t("hr.appliedAt")}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="score">{t("hr.sortByScore")}</SelectItem>
                 <SelectItem value="date">{t("hr.appliedAt")}</SelectItem>
@@ -198,14 +245,21 @@ export default function HrApplications() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[150px]">{t("hr.candidate")}</TableHead>
+                    <TableHead className="min-w-[150px]">{t("hr.jobTitle")}</TableHead>
                     <TableHead className="min-w-[80px]">{t("hr.gender")}</TableHead>
                     <TableHead className="min-w-[120px]">{t("hr.nationality")}</TableHead>
+                    <TableHead className="min-w-[120px]">{t("public.transferableIqama", "Iqama")}</TableHead>
                     <TableHead className="min-w-[120px]">{t("hr.maritalStatus")}</TableHead>
                     <TableHead className="min-w-[200px]">{t("hr.qualifications")}</TableHead>
                     <TableHead className="min-w-[80px]">{t("hr.yearsExperience")}</TableHead>
-                    <TableHead className="min-w-[130px]">{t("hr.location")}</TableHead>
+                    <TableHead className="min-w-[130px]">{t("public.countryOfResidence", "Country")}</TableHead>
+                    <TableHead className="min-w-[150px]">{t("public.provinceRegion", "Province / Region")}</TableHead>
+                    <TableHead className="min-w-[120px]">{t("hr.currentSalary")}</TableHead>
+                    <TableHead className="min-w-[120px]">{t("hr.expectedSalary")}</TableHead>
+                    <TableHead className="min-w-[120px]">{t("hr.noticePeriod", "Notice Period")}</TableHead>
                     <TableHead className="min-w-[120px]">{t("common.phone")}</TableHead>
                     <TableHead className="min-w-[160px]">{t("common.email")}</TableHead>
+                    <TableHead className="min-w-[200px]">{t("hr.candidateNotes")}</TableHead>
                     <TableHead className="min-w-[80px]">{t("common.score")}</TableHead>
                     <TableHead className="min-w-[200px]">{t("hr.aiNotes")}</TableHead>
                     <TableHead className="min-w-[200px]">{t("hr.hrNotes")}</TableHead>
@@ -221,17 +275,27 @@ export default function HrApplications() {
                         <div className="font-medium">{r.candidates?.name}</div>
                         <div className="text-xs text-muted-foreground">{r.candidates?.email}</div>
                       </TableCell>
+                      <TableCell>
+                        <TruncatedCell text={r.candidates?.job_title ?? null} maxLen={20} />
+                      </TableCell>
                       <TableCell className="capitalize">
                         {r.candidates?.gender && r.candidates.gender !== "unspecified"
-                          ? r.candidates.gender
+                          ? genderLabel(r.candidates.gender)
                           : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell>
-                        <TruncatedCell text={r.candidates?.nationality ?? null} maxLen={20} />
+                        <TruncatedCell text={
+                          r.candidates?.nationality
+                            ? getCountries().find(c => c.code === r.candidates?.nationality)?.name || r.candidates.nationality
+                            : null
+                        } maxLen={20} />
+                      </TableCell>
+                      <TableCell>
+                        {r.candidates?.transferable_iqama === true ? t("common.yes", "Yes") : r.candidates?.transferable_iqama === false ? t("common.no", "No") : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell className="capitalize">
                         {r.candidates?.marital_status && r.candidates.marital_status !== "unspecified"
-                          ? r.candidates.marital_status
+                          ? maritalLabel(r.candidates.marital_status)
                           : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell>
@@ -243,11 +307,40 @@ export default function HrApplications() {
                           : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell>
-                        <TruncatedCell text={r.candidates?.location ?? null} maxLen={20} />
+                        <TruncatedCell text={
+                          r.candidates?.residence_country 
+                            ? getCountryName(r.candidates.residence_country)
+                            : r.candidates?.location ?? null
+                        } maxLen={20} />
+                      </TableCell>
+                      <TableCell>
+                        <TruncatedCell text={
+                          r.candidates?.residence_region && r.candidates?.residence_country
+                            ? getCityName(r.candidates.residence_country, r.candidates.residence_region)
+                            : null
+                        } maxLen={20} />
+                      </TableCell>
+                      <TableCell>
+                        {r.candidates?.current_salary != null
+                          ? r.candidates.current_salary
+                          : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        {r.candidates?.expected_salary != null
+                          ? r.candidates.expected_salary
+                          : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        {r.candidates?.notice_period != null
+                          ? r.candidates.notice_period
+                          : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell>{r.candidates?.phone ?? <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell>
                         <TruncatedCell text={r.candidates?.email ?? null} maxLen={22} />
+                      </TableCell>
+                      <TableCell>
+                        <TruncatedCell text={r.candidates?.notes ?? null} maxLen={40} />
                       </TableCell>
                       <TableCell>
                         <Badge variant={scoreVariant(r.score)}>
@@ -272,7 +365,11 @@ export default function HrApplications() {
                           value={r.status}
                           onValueChange={(v) => updateStatus(r.id, v as AppStatus)}
                         >
-                          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="w-36">
+                            <SelectValue>
+                              {statusLabel(r.status)}
+                            </SelectValue>
+                          </SelectTrigger>
                           <SelectContent>
                             {(["pending", "reviewed", "accepted", "rejected"] as AppStatus[]).map((s) => (
                               <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>
@@ -296,7 +393,7 @@ export default function HrApplications() {
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={20} className="text-center text-muted-foreground py-8">
                         {t("hr.noApplications")}
                       </TableCell>
                     </TableRow>
@@ -311,5 +408,3 @@ export default function HrApplications() {
   );
 }
 
-interface JobCardHeaderProps { title: string; }
-export const _h = (p: JobCardHeaderProps) => <CardHeader><CardTitle>{p.title}</CardTitle></CardHeader>;

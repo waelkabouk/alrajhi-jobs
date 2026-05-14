@@ -8,7 +8,7 @@ interface AuthState {
   session: Session | null;
   user: User | null;
   roles: AppRole[];
-  companyId: string | null;
+  sector: "industrial" | "contracting" | "trading" | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }
@@ -19,39 +19,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
-  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [sector, setSector] = useState<"industrial" | "contracting" | "trading" | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadUserMeta = async (uid: string) => {
     const [{ data: roleRows }, { data: profile }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", uid),
-      supabase.from("profiles").select("company_id").eq("id", uid).maybeSingle(),
+      supabase.from("profiles").select("sector").eq("id", uid).maybeSingle(),
     ]);
     setRoles((roleRows ?? []).map((r) => r.role as AppRole));
-    setCompanyId(profile?.company_id ?? null);
+    setSector(profile?.sector ?? null);
   };
 
   useEffect(() => {
+    let mounted = true;
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      if (!mounted) return;
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        // Defer to avoid deadlocks
-        setTimeout(() => loadUserMeta(sess.user.id), 0);
+        setLoading(true);
+        loadUserMeta(sess.user.id).finally(() => {
+          if (mounted) setLoading(false);
+        });
       } else {
         setRoles([]);
-        setCompanyId(null);
+        setSector(null);
+        if (mounted) setLoading(false);
       }
     });
 
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
+      if (!mounted) return;
       setSession(sess);
       setUser(sess?.user ?? null);
-      if (sess?.user) loadUserMeta(sess.user.id);
-      setLoading(false);
+      if (sess?.user) {
+        loadUserMeta(sess.user.id).finally(() => {
+          if (mounted) setLoading(false);
+        });
+      } else {
+        if (mounted) setLoading(false);
+      }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
@@ -59,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, roles, companyId, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, roles, sector, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -53,62 +53,72 @@ interface ScoreResult {
   notes: string;
 }
 
-async function callAi(cvText: string, jobText: string, lang: string): Promise<ScoreResult> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
+async function callAi(pdfBytes: Uint8Array, jobText: string, lang: string): Promise<ScoreResult> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY missing");
+  const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
 
-  const sys = `You are an ATS analyst. Extract structured data from a CV and compare it to a job. Respond in ${lang === "ar" ? "Arabic" : "English"}.`;
-  const userMsg = `JOB:\n${jobText}\n\nCV:\n${cvText.slice(0, 12000)}`;
+  const sys = `You are an ATS analyst. Analyze the attached CV PDF and compare it to the job description. Always respond entirely in Arabic.`;
+  // Safe base64 encoding — avoids stack overflow on large PDFs (spread operator limit)
+  let binary = "";
+  for (let i = 0; i < pdfBytes.length; i++) binary += String.fromCharCode(pdfBytes[i]);
+  const base64 = btoa(binary);
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
-      tools: [{
-        type: "function",
-        function: {
-          name: "score_cv",
-          description: "Return structured CV analysis vs job",
-          parameters: {
-            type: "object",
-            properties: {
-              skills: { type: "array", items: { type: "string" }, description: "Skills from the CV that match the job" },
-              experience_years: { type: "number", description: "Total relevant years of experience" },
-              keywords: { type: "array", items: { type: "string" }, description: "Important keywords matched" },
-              summary: { type: "string", description: "Short summary of fit, 1-2 sentences" },
-              notes: { type: "string", description: "1-3 sentences covering strengths, gaps, and fit reasoning. Write in the same language as the CV." },
-            },
-            required: ["skills", "experience_years", "keywords", "summary", "notes"],
-            additionalProperties: false,
-          },
-        },
+      systemInstruction: { parts: [{ text: sys }] },
+      contents: [{
+        role: "user",
+        parts: [
+          { inlineData: { mimeType: "application/pdf", data: base64 } },
+          { text: `Compare this CV to the following job:\n${jobText}` },
+        ],
       }],
-      tool_choice: { type: "function", function: { name: "score_cv" } },
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            skills:           { type: "ARRAY", items: { type: "STRING" }, description: "Skills from the CV that match the job" },
+            experience_years: { type: "NUMBER", description: "Total relevant years of experience" },
+            keywords:         { type: "ARRAY", items: { type: "STRING" }, description: "Important keywords matched" },
+            summary:          { type: "STRING", description: "Short summary of fit, 1-2 sentences" },
+            notes:            { type: "STRING", description: "1-3 sentences on strengths, gaps, and fit. Write in Arabic." },
+          },
+          required: ["skills", "experience_years", "keywords", "summary", "notes"],
+        },
+      },
     }),
   });
 
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`AI gateway ${res.status}: ${txt}`);
+    throw new Error(`Gemini API ${res.status}: ${txt}`);
   }
   const json = await res.json();
-  const call = json.choices?.[0]?.message?.tool_calls?.[0];
-  if (!call) throw new Error("No tool call returned");
-  return JSON.parse(call.function.arguments) as ScoreResult;
+  let text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("No text returned from Gemini");
+  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  return JSON.parse(text) as ScoreResult;
 }
 
-function computeScore(parsed: ScoreResult, jobText: string): { score: number; breakdown: Record<string, number> } {
-  const jobLower = jobText.toLowerCase();
-  const skillHits = parsed.skills.filter((s) => jobLower.includes(s.toLowerCase())).length;
-  const skillScore = parsed.skills.length ? (skillHits / parsed.skills.length) * 100 : 0;
-  const expScore = Math.min(parsed.experience_years / 8, 1) * 100;
-  const kwHits = parsed.keywords.filter((k) => jobLower.includes(k.toLowerCase())).length;
-  const kwScore = parsed.keywords.length ? (kwHits / parsed.keywords.length) * 100 : 0;
-  const signalScore = parsed.summary.length > 50 ? 100 : 50;
+function computeScore(parsed: ScoreResult): { score: number; breakdown: Record<string, number> } {
+  // Experience: max score at 10+ years (100%), scales linearly
+  const expScore = Math.min((parsed.experience_years / 10) * 100, 100);
 
-  const total = skillScore * 0.4 + expScore * 0.3 + kwScore * 0.2 + signalScore * 0.1;
+  // Skills: score based on how many matched skills Gemini found (cap at 10 for 100%)
+  const skillScore = Math.min((parsed.skills.length / 10) * 100, 100);
+
+  // Keywords: score based on how many keywords were matched (cap at 8 for 100%)
+  const kwScore = Math.min((parsed.keywords.length / 8) * 100, 100);
+
+  // Summary quality: a detailed summary (>80 chars) gets full marks
+  const signalScore = parsed.summary.length > 80 ? 100 : parsed.summary.length > 30 ? 60 : 20;
+
+  // Weighted total: skills 35%, experience 30%, keywords 25%, quality signal 10%
+  const total = skillScore * 0.35 + expScore * 0.30 + kwScore * 0.25 + signalScore * 0.10;
   return {
     score: Math.round(total),
     breakdown: {
@@ -133,47 +143,52 @@ Deno.serve(async (req) => {
 
     const { data: app, error: appErr } = await admin
       .from("applications")
-      .select("id, candidate_id, job_id, jobs ( title_en, title_ar, description_en, description_ar, requirements_en, requirements_ar ), candidates ( id, cv_file_url )")
+      .select("id, candidate_id, job_id, jobs ( title_en, title_ar, description_en, description_ar, requirements_en, requirements_ar, job_type ), candidates ( id, cv_file_url, cv_language )")
       .eq("id", applicationId)
       .maybeSingle();
     if (appErr || !app) throw new Error(appErr?.message || "Application not found");
 
     const cvPath = (app.candidates as { cv_file_url: string | null } | null)?.cv_file_url;
-    if (!cvPath) throw new Error("No CV file");
+    if (!cvPath) throw new Error("No CV file attached to this application");
 
     const { data: file, error: dlErr } = await admin.storage.from("cvs").download(cvPath);
-    if (dlErr || !file) throw new Error(dlErr?.message || "Download failed");
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const ext = cvPath.split(".").pop()?.toLowerCase() ?? "";
+    if (dlErr || !file) throw new Error(dlErr?.message || "Failed to download CV from storage");
+    const pdfBytes = new Uint8Array(await file.arrayBuffer());
 
-    let cvText = "";
-    try {
-      cvText = await extractText(bytes, ext);
-    } catch (e) {
-      console.error("extract failed", e);
-    }
-    const lang = detectLang(cvText);
+    // Detect language from stored candidate preference, default to English
+    const lang = (app.candidates as { cv_language?: string | null } | null)?.cv_language ?? "en";
 
-    const job = app.jobs as { title_en?: string; title_ar?: string; description_en?: string; description_ar?: string; requirements_en?: string; requirements_ar?: string } | null;
+    const job = app.jobs as { title_en?: string; title_ar?: string; description_en?: string; description_ar?: string; requirements_en?: string; requirements_ar?: string; job_type?: string } | null;
+    const typeLabel = job?.job_type ? `Job Type: ${job.job_type}` : "";
+    
     const jobText = lang === "ar"
-      ? [job?.title_ar, job?.description_ar, job?.requirements_ar].filter(Boolean).join("\n")
-      : [job?.title_en, job?.description_en, job?.requirements_en].filter(Boolean).join("\n");
+      ? [job?.title_ar, job?.description_ar, job?.requirements_ar, typeLabel].filter(Boolean).join("\n")
+      : [job?.title_en, job?.description_en, job?.requirements_en, typeLabel].filter(Boolean).join("\n");
+
+    // Build job text — fall back to English if Arabic fields are empty
+    const jobTextFinal = jobText.trim().length > 0 ? jobText
+      : [job?.title_en, job?.description_en, job?.requirements_en, typeLabel].filter(Boolean).join("\n");
+
+    if (jobTextFinal.trim().length === 0) {
+      throw new Error("Job has no description or requirements. Please fill in the job details before processing.");
+    }
 
     let score = 0;
     let breakdown: Record<string, number> = {};
     let parsed: ScoreResult | null = null;
-    if (cvText.trim().length > 30 && jobText.trim().length > 0) {
-      try {
-        parsed = await callAi(cvText, jobText, lang);
-        const r = computeScore(parsed, jobText);
-        score = r.score; breakdown = r.breakdown;
-      } catch (e) {
-        console.error("AI scoring failed", e);
-      }
+
+    try {
+      // Send raw PDF directly to Gemini — no text extraction needed
+      parsed = await callAi(pdfBytes, jobTextFinal, lang);
+      const r = computeScore(parsed);
+      score = r.score;
+      breakdown = r.breakdown;
+    } catch (e) {
+      console.error("AI scoring failed", e);
+      throw new Error(`AI processing failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     }
 
     await admin.from("candidates").update({
-      cv_text: cvText.slice(0, 20000),
       cv_language: lang,
       parsed_data: parsed as unknown as Record<string, unknown> | null,
     }).eq("id", (app.candidates as { id: string }).id);
